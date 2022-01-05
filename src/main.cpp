@@ -4,6 +4,13 @@
 #include <LiquidCrystal_I2C.h>
 #include <math.h>
 
+//Config
+const String sifre = "1120";
+const byte overheatTemp = 30;
+unsigned int kalanDeneme = 2;
+const byte ucret = 2;
+const byte sarjDk = 1;
+
 // Function Declarations
 void stateHandler(), lcdWelcome(), checkReset(), sonucCheck(), keypadTest(), passTest(), showBattTemp();
 void specialButtonCheck(), charge(), lcdCustomCreate(), elliKurus(), birLira(), servoTest();
@@ -22,23 +29,17 @@ enum stateMachine
   passLocked,
   batteryCheck
 };
-stateMachine state;
-stateMachine prevState;
+stateMachine prevState,state;
 
 // NTC Definitions
 #define ntcPin A0
 
-String sifre = "1120";
-String girilenSifre = "";
-bool locked = false;
-unsigned int kalanDeneme = 2;
-unsigned int starPos = 1;
-
-unsigned int ucret = 2;
-unsigned int sarjDk = 1;
-
 volatile float sonuc = 0;
 volatile bool liraDetected, kurusDetected;
+unsigned int starPos = 1;
+bool locked = false;
+String girilenSifre = "";
+
 
 #define role 6
 #define ls1 2
@@ -64,7 +65,8 @@ char keys[ROWS][COLS] =
         {'1', '2', '3'},
         {'4', '5', '6'},
         {'7', '8', '9'},
-        {'*', '0', '#'}};
+        {'*', '0', '#'}
+    };
 byte rowPins[ROWS] = {12, 11, 10, 9};
 byte colPins[COLS] = {8, 7, 6};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
@@ -511,9 +513,22 @@ void startup()
 
   for (int i = 1; i < 15; i++)
   {
+    switch (i)
+    {
+    case 1:
+      servo.write(90);
+      break;
+    case 6:
+      servo.write(0);
+    case 15:
+      servo.write(90);
+    default:
+      break;
+    }
+
     lcd.setCursor(i, 1);
     lcd.write((byte)6);
-    delay(50);
+    delay(100);
   }
 
   delay(800);
@@ -537,8 +552,7 @@ int getNtcTemp()
 
 bool battOverheat()
 {
-  int temp = getNtcTemp();
-  if (temp >= 30)
+  if (getNtcTemp() >= overheatTemp)
   {
     return true;
   }
