@@ -37,13 +37,13 @@ stateMachine prevState,state;
 volatile float sonuc = 0;
 volatile bool liraDetected, kurusDetected;
 unsigned int starPos = 1;
-bool locked = false;
+bool locked = true;
 String girilenSifre = "";
 
 
-#define role 6
-#define ls1 2
-#define ls05 3
+#define role 4
+#define ls1 3
+#define ls05 2
 
 unsigned long timer = 0;
 volatile unsigned int dk, sn, dkUp, snUp;
@@ -67,8 +67,8 @@ char keys[ROWS][COLS] =
         {'7', '8', '9'},
         {'*', '0', '#'}
     };
-byte rowPins[ROWS] = {12, 11, 10, 9};
-byte colPins[COLS] = {8, 7, 6};
+byte rowPins[ROWS] = {6,7,8,9};
+byte colPins[COLS] = {10,11,12};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 char key;
 
@@ -202,7 +202,7 @@ void servoLock()
 {
   if (!locked)
   {
-    servo.write(90);
+    servo.write(0);
     locked = true;
   }
 }
@@ -211,7 +211,7 @@ void servoUnlock()
 {
   if (locked)
   {
-    servo.write(0);
+    servo.write(90);
     locked = false;
   }
 }
@@ -516,12 +516,12 @@ void startup()
     switch (i)
     {
     case 1:
-      servo.write(90);
+      servo.write(0);
       break;
     case 6:
-      servo.write(0);
-    case 15:
       servo.write(90);
+    case 15:
+      servo.write(0);
     default:
       break;
     }
