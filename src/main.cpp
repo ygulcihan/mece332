@@ -31,6 +31,7 @@ enum stateMachine
   batteryCheck,
   configScreen,
   configEdit,
+  
 };
 stateMachine prevState, state;
 
@@ -40,6 +41,7 @@ stateMachine prevState, state;
 volatile float sonuc = 0;
 volatile bool liraDetected, kurusDetected;
 unsigned int starPos = 1;
+byte selectedIndex = 1;
 bool locked = true;
 String girilenSifre = "";
 
@@ -574,36 +576,35 @@ void configWelcome()
 {
   lcd.setCursor(0, 0);
   lcd.print("Konfigurasyon");
-  lcd.setCursor(1, 0);
+  lcd.setCursor(0, 1);
   lcd.print("1:Config 2:Bat");
-  lcd.setCursor(0, 15);
+  lcd.setCursor(14, 1);
   lcd.write((byte)0);
-  lcd.setCursor(0, 16);
+  lcd.setCursor(15, 1);
   lcd.print("C");
 
   key = keypad.getKey();
 
-  switch (key)
+  if (key == '1')
   {
-  case 1:
     state = configEdit;
-    break;
-  case 2:
+  }
+
+  else if (key == '2')
+  {
     state = batteryCheck;
-    break;
-  default:
-    if (key != NO_KEY)
-    {
-      state = insertCoin;
-    }
-    break;
+  }
+
+  else if (key != NO_KEY)
+  {
+    state = insertCoin;
   }
 }
 
 void configMenu()
 {
-  byte selectedIndexPrev = 0;
-  byte selectedIndex = 1;
+  byte selectedIndexPrev = 1;
+
   key = keypad.getKey();
 
   if (selectedIndex != selectedIndexPrev)
@@ -611,23 +612,23 @@ void configMenu()
     lcd.clear();
   }
 
-  if (key == 1 || key == 2)
-  {
-    selectedIndex = key;
-  }
-
-  else if (key != NO_KEY)
-  {
-    state = configScreen;
-  }
-
   switch (selectedIndex)
   {
   case 1:
     lcd.setCursor(0, 0);
     lcd.print(">1.Ucret  2.Sure");
-    lcd.setCursor(1, 0);
+    lcd.setCursor(0, 1);
     lcd.print("*->Geri   #->Sec");
+
+    if (keypad.getKey() == '1')
+    {
+      selectedIndex = 1;
+    }
+
+    if (keypad.getKey() == '2')
+    {
+      selectedIndex = 2;
+    }
 
     if (keypad.getKey() == '*')
     {
@@ -643,7 +644,7 @@ void configMenu()
       {
         lcd.setCursor(0, 0);
         lcd.print("Ucret: " + String(ucret) + " tl");
-        lcd.setCursor(1, 0);
+        lcd.setCursor(0, 1);
         lcd.print("<* " + yeniUcret + " #>");
         char key1 = keypad.getKey();
         if (key1 != NO_KEY && key1 != '*' && key1 != '#')
@@ -662,11 +663,11 @@ void configMenu()
           yeniUcret = "";
           lcd.setCursor(0, 0);
           lcd.print("Ucret: " + String(ucret) + " tl");
-          lcd.setCursor(1, 0);
+          lcd.setCursor(0, 1);
           lcd.print("Kaydedildi ");
-          lcd.setCursor(1, 12);
-          lcd.write((byte) 7);
-          lcd.setCursor(1,13);
+          lcd.setCursor(12, 1);
+          lcd.write((byte)7);
+          lcd.setCursor(13, 1);
           lcd.print("    ");
           delay(2000);
           state = configScreen;
@@ -679,8 +680,18 @@ void configMenu()
   case 2:
     lcd.setCursor(0, 0);
     lcd.print(" 1.Ucret >2.Sure");
-    lcd.setCursor(1, 0);
+    lcd.setCursor(0, 1);
     lcd.print("*->Geri   #->Sec");
+
+    if (keypad.getKey() == '1')
+    {
+      selectedIndex = 1;
+    }
+
+    if (keypad.getKey() == '2')
+    {
+      selectedIndex = 2;
+    }
 
     if (keypad.getKey() == '*')
     {
@@ -696,7 +707,7 @@ void configMenu()
       {
         lcd.setCursor(0, 0);
         lcd.print("Sure: " + String(sarjDk) + " dk");
-        lcd.setCursor(1, 0);
+        lcd.setCursor(0, 1);
         lcd.print("<* " + yeniSure + " #>");
         char key1 = keypad.getKey();
         if (key1 != NO_KEY && key1 != '*' && key1 != '#')
@@ -715,11 +726,11 @@ void configMenu()
           yeniSure = "";
           lcd.setCursor(0, 0);
           lcd.print("Ucret: " + String(sarjDk) + " dk");
-          lcd.setCursor(1, 0);
+          lcd.setCursor(0, 1);
           lcd.print("Kaydedildi ");
-          lcd.setCursor(1, 12);
-          lcd.write((byte) 7);
-          lcd.setCursor(1,13);
+          lcd.setCursor(12, 1);
+          lcd.write((byte)7);
+          lcd.setCursor(13, 1);
           lcd.print("    ");
           delay(2000);
           state = configScreen;
