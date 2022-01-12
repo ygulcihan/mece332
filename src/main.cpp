@@ -8,12 +8,13 @@
 const String sifre = "1120";
 const byte overheatTemp = 30;
 unsigned int kalanDeneme = 2;
-const byte ucret = 2;
-const byte sarjDk = 1;
+unsigned int ucret = 2;
+unsigned int sarjDk = 1;
+bool interruptsDisabled = false;
 
 // Function Declarations
 void stateHandler(), lcdWelcome(), checkReset(), sonucCheck(), keypadTest(), passTest(), showBattTemp();
-void specialButtonCheck(), charge(), lcdCustomCreate(), elliKurus(), birLira(), servoTest();
+void specialButtonCheck(), charge(), lcdCustomCreate(), elliKurus(), birLira(), servoTest(), configWelcome(), configMenu();
 bool passBlocked(), battOverheat();
 int getNtcTemp();
 
@@ -27,9 +28,11 @@ enum stateMachine
   charging,
   passCheck,
   passLocked,
-  batteryCheck
+  batteryCheck,
+  configScreen,
+  configEdit,
 };
-stateMachine prevState,state;
+stateMachine prevState, state;
 
 // NTC Definitions
 #define ntcPin A0
@@ -40,10 +43,9 @@ unsigned int starPos = 1;
 bool locked = true;
 String girilenSifre = "";
 
-
 #define role 4
-#define ls1 3
-#define ls05 2
+#define ls1 2
+#define ls05 3
 
 unsigned long timer = 0;
 volatile unsigned int dk, sn, dkUp, snUp;
@@ -52,7 +54,6 @@ unsigned long msCounter = 0;
 unsigned long msCounterPrev = 0;
 unsigned int cancelCounter = 0;
 unsigned int lsDisableCounter = 0;
-bool interruptsDisabled = true;
 bool lcdCleared = true;
 
 // Keypad Definitions
@@ -65,10 +66,9 @@ char keys[ROWS][COLS] =
         {'1', '2', '3'},
         {'4', '5', '6'},
         {'7', '8', '9'},
-        {'*', '0', '#'}
-    };
-byte rowPins[ROWS] = {6,7,8,9};
-byte colPins[COLS] = {10,11,12};
+        {'*', '0', '#'}};
+byte rowPins[ROWS] = {6, 7, 8, 9};
+byte colPins[COLS] = {10, 11, 12};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 char key;
 
@@ -99,6 +99,12 @@ void setup()
   state = loading;
   stateHandler();
   state = insertCoin;
+
+  if (!interruptsDisabled)
+  {
+    attachInterrupt(digitalPinToInterrupt(ls05), elliKurus, FALLING);
+    attachInterrupt(digitalPinToInterrupt(ls1), birLira, FALLING);
+  }
 }
 
 void loop()
@@ -255,6 +261,7 @@ void passTest()
       lcd.setCursor(15, 1);
       lcd.write((byte)5);
       delay(200);
+      kalanDeneme = 3;
       servoUnlock();
       delay(1500);
 
@@ -313,7 +320,7 @@ void specialButtonCheck()
 
   if (key == '*')
   {
-    state = batteryCheck;
+    state = configScreen;
   }
 
   if (key == '#')
@@ -481,7 +488,7 @@ bool passBlocked()
     if (wrongPassCounter - wrongPassCounterPrev >= 1000)
     {
       lcd.setCursor(1, 1);
-      lcd.print("Kalan: " + String(wrongPassDelayCounter) + " sn");
+      lcd.print("Kalan: " + String(wrongPassDelayCounter) + " sn ");
       wrongPassDelayCounter--;
       wrongPassCounterPrev = wrongPassCounter;
     }
@@ -563,6 +570,173 @@ bool battOverheat()
   }
 }
 
+void configWelcome()
+{
+  lcd.setCursor(0, 0);
+  lcd.print("Konfigurasyon");
+  lcd.setCursor(1, 0);
+  lcd.print("1:Config 2:Bat");
+  lcd.setCursor(0, 15);
+  lcd.write((byte)0);
+  lcd.setCursor(0, 16);
+  lcd.print("C");
+
+  key = keypad.getKey();
+
+  switch (key)
+  {
+  case 1:
+    state = configEdit;
+    break;
+  case 2:
+    state = batteryCheck;
+    break;
+  default:
+    if (key != NO_KEY)
+    {
+      state = insertCoin;
+    }
+    break;
+  }
+}
+
+void configMenu()
+{
+  byte selectedIndexPrev = 0;
+  byte selectedIndex = 1;
+  key = keypad.getKey();
+
+  if (selectedIndex != selectedIndexPrev)
+  {
+    lcd.clear();
+  }
+
+  if (key == 1 || key == 2)
+  {
+    selectedIndex = key;
+  }
+
+  else if (key != NO_KEY)
+  {
+    state = configScreen;
+  }
+
+  switch (selectedIndex)
+  {
+  case 1:
+    lcd.setCursor(0, 0);
+    lcd.print(">1.Ucret  2.Sure");
+    lcd.setCursor(1, 0);
+    lcd.print("*->Geri   #->Sec");
+
+    if (keypad.getKey() == '*')
+    {
+      state = configScreen;
+    }
+
+    if (keypad.getKey() == '#')
+    {
+      String yeniUcret = "";
+      lcd.clear();
+
+      while (1)
+      {
+        lcd.setCursor(0, 0);
+        lcd.print("Ucret: " + String(ucret) + " tl");
+        lcd.setCursor(1, 0);
+        lcd.print("<* " + yeniUcret + " #>");
+        char key1 = keypad.getKey();
+        if (key1 != NO_KEY && key1 != '*' && key1 != '#')
+        {
+          yeniUcret += key1;
+        }
+
+        if (key1 == '*')
+        {
+          break;
+        }
+
+        if (key1 == '#')
+        {
+          ucret = yeniUcret.toInt();
+          yeniUcret = "";
+          lcd.setCursor(0, 0);
+          lcd.print("Ucret: " + String(ucret) + " tl");
+          lcd.setCursor(1, 0);
+          lcd.print("Kaydedildi ");
+          lcd.setCursor(1, 12);
+          lcd.write((byte) 7);
+          lcd.setCursor(1,13);
+          lcd.print("    ");
+          delay(2000);
+          state = configScreen;
+          break;
+        }
+      }
+    }
+    break;
+
+  case 2:
+    lcd.setCursor(0, 0);
+    lcd.print(" 1.Ucret >2.Sure");
+    lcd.setCursor(1, 0);
+    lcd.print("*->Geri   #->Sec");
+
+    if (keypad.getKey() == '*')
+    {
+      state = configScreen;
+    }
+
+    if (keypad.getKey() == '#')
+    {
+      String yeniSure = "";
+      lcd.clear();
+
+      while (1)
+      {
+        lcd.setCursor(0, 0);
+        lcd.print("Sure: " + String(sarjDk) + " dk");
+        lcd.setCursor(1, 0);
+        lcd.print("<* " + yeniSure + " #>");
+        char key1 = keypad.getKey();
+        if (key1 != NO_KEY && key1 != '*' && key1 != '#')
+        {
+          yeniSure += key1;
+        }
+
+        if (key1 == '*')
+        {
+          break;
+        }
+
+        if (key1 == '#')
+        {
+          sarjDk = yeniSure.toInt();
+          yeniSure = "";
+          lcd.setCursor(0, 0);
+          lcd.print("Ucret: " + String(sarjDk) + " dk");
+          lcd.setCursor(1, 0);
+          lcd.print("Kaydedildi ");
+          lcd.setCursor(1, 12);
+          lcd.write((byte) 7);
+          lcd.setCursor(1,13);
+          lcd.print("    ");
+          delay(2000);
+          state = configScreen;
+          break;
+        }
+      }
+    }
+
+    break;
+
+  default:
+    break;
+  }
+
+  selectedIndexPrev = selectedIndex;
+}
+
 void stateHandler()
 {
   if (prevState != state)
@@ -604,6 +778,12 @@ void stateHandler()
     break;
   case batteryCheck:
     showBattTemp();
+    break;
+  case configScreen:
+    configWelcome();
+    break;
+  case configEdit:
+    configMenu();
     break;
   }
 }
