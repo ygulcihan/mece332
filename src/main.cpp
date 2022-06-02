@@ -16,7 +16,7 @@ bool interruptsDisabled = false;
 void stateHandler(), lcdWelcome(), checkReset(), sonucCheck(), keypadTest(), passTest(), showBattTemp(), charge(), keyHandler(), sureChanger(), ucretChanger();
 void specialButtonCheck(), lcdCustomCreate(), elliKurus(), birLira(), servoTest(), configWelcome(), configMenu(), showConfigMenu();
 bool passBlocked(), battOverheat();
-int getNtcTemp();
+int getNtcTemp(), getBattLevel();
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo servo;
@@ -115,6 +115,18 @@ void loop()
   stateHandler();
 }
 
+int getBattLevel()
+{
+  uint16_t adcValue = analogRead(A5);
+  Serial.println(adcValue);
+  if (adcValue>1000)
+    adcValue = 1000;
+  int battPercentage = map(adcValue,800,1000,0,100);
+  if (battPercentage > 100)
+    battPercentage = 100;
+  return battPercentage;
+}
+
 void elliKurus()
 {
   if (!kurusDetected)
@@ -172,14 +184,29 @@ void lcdCustomCreate()
 
 void lcdWelcome()
 {
+  static unsigned long entryTime;
+  static uint8_t battLevel;
+
+  if(millis() - entryTime > 10000 || entryTime == 0)
+  {
+    unsigned int sum;
+    for(int i = 0; i<10; i++)
+    {
+      sum += getBattLevel();
+    }
+
+    battLevel = sum/10;
+    entryTime = millis();
+  }
+
   lcd.setCursor(0, 0);
-  lcd.print("Hosgeldiniz! ");
-  lcd.setCursor(13, 0);
-  lcd.write((byte)2);
+  lcd.print("Batarya: ");
+  lcd.setCursor(9,0);
+  lcd.print(String(battLevel) + "% ");
   lcd.setCursor(14, 0);
-  lcd.write((byte)3);
+  lcd.write((byte)2);
   lcd.setCursor(15, 0);
-  lcd.print(" ");
+  lcd.write((byte)3);
   lcd.setCursor(0, 1);
   lcd.print("Bakiye = " + String(sonuc) + " tl ");
 }
