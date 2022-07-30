@@ -13,10 +13,10 @@ unsigned int sarjDk = 1;
 bool interruptsDisabled = false;
 
 // Function Declarations
-void stateHandler(), lcdWelcome(), checkReset(), sonucCheck(), keypadTest(), passTest(), showBattTemp();
-void specialButtonCheck(), charge(), lcdCustomCreate(), elliKurus(), birLira(), servoTest(), configWelcome(), configMenu();
+void stateHandler(), lcdWelcome(), checkReset(), sonucCheck(), keypadTest(), passTest(), showBattTemp(), charge(), keyHandler(), sureChanger(), ucretChanger();
+void specialButtonCheck(), lcdCustomCreate(), elliKurus(), birLira(), servoTest(), configWelcome(), configMenu(), showConfigMenu();
 bool passBlocked(), battOverheat();
-int getNtcTemp();
+int getNtcTemp(), getBattLevel();
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo servo;
@@ -31,7 +31,8 @@ enum stateMachine
   batteryCheck,
   configScreen,
   configEdit,
-  
+  ucretChange,
+  sureChange,
 };
 stateMachine prevState, state;
 
@@ -114,6 +115,18 @@ void loop()
   stateHandler();
 }
 
+int getBattLevel()
+{
+  uint16_t adcValue = analogRead(A5);
+  Serial.println(adcValue);
+  if (adcValue>1000)
+    adcValue = 1000;
+  int battPercentage = map(adcValue,800,1000,0,100);
+  if (battPercentage > 100)
+    battPercentage = 100;
+  return battPercentage;
+}
+
 void elliKurus()
 {
   if (!kurusDetected)
@@ -171,14 +184,29 @@ void lcdCustomCreate()
 
 void lcdWelcome()
 {
+  static unsigned long entryTime;
+  static uint8_t battLevel;
+
+  if(millis() - entryTime > 10000 || entryTime == 0)
+  {
+    unsigned int sum;
+    for(int i = 0; i<10; i++)
+    {
+      sum += getBattLevel();
+    }
+
+    battLevel = sum/10;
+    entryTime = millis();
+  }
+
   lcd.setCursor(0, 0);
-  lcd.print("Hosgeldiniz! ");
-  lcd.setCursor(13, 0);
-  lcd.write((byte)2);
+  lcd.print("Batarya: ");
+  lcd.setCursor(9,0);
+  lcd.print(String(battLevel) + "% ");
   lcd.setCursor(14, 0);
-  lcd.write((byte)3);
+  lcd.write((byte)2);
   lcd.setCursor(15, 0);
-  lcd.print(" ");
+  lcd.write((byte)3);
   lcd.setCursor(0, 1);
   lcd.print("Bakiye = " + String(sonuc) + " tl ");
 }
@@ -577,11 +605,11 @@ void configWelcome()
   lcd.setCursor(0, 0);
   lcd.print("Konfigurasyon");
   lcd.setCursor(0, 1);
-  lcd.print("1:Config 2:Bat");
-  lcd.setCursor(14, 1);
+  lcd.print("1:Ayar 2:Bat.");
+  lcd.setCursor(13, 1);
   lcd.write((byte)0);
-  lcd.setCursor(15, 1);
-  lcd.print("C");
+  lcd.setCursor(14, 1);
+  lcd.print("C  ");
 
   key = keypad.getKey();
 
@@ -603,15 +631,15 @@ void configWelcome()
 
 void configMenu()
 {
-  byte selectedIndexPrev = 1;
-
+  keyHandler();
+  showConfigMenu();
   key = keypad.getKey();
+  if (key == '*')
+    state = configScreen;
+}
 
-  if (selectedIndex != selectedIndexPrev)
-  {
-    lcd.clear();
-  }
-
+void showConfigMenu()
+{
   switch (selectedIndex)
   {
   case 1:
@@ -620,61 +648,7 @@ void configMenu()
     lcd.setCursor(0, 1);
     lcd.print("*->Geri   #->Sec");
 
-    if (keypad.getKey() == '1')
-    {
-      selectedIndex = 1;
-    }
-
-    if (keypad.getKey() == '2')
-    {
-      selectedIndex = 2;
-    }
-
-    if (keypad.getKey() == '*')
-    {
-      state = configScreen;
-    }
-
-    if (keypad.getKey() == '#')
-    {
-      String yeniUcret = "";
-      lcd.clear();
-
-      while (1)
-      {
-        lcd.setCursor(0, 0);
-        lcd.print("Ucret: " + String(ucret) + " tl");
-        lcd.setCursor(0, 1);
-        lcd.print("<* " + yeniUcret + " #>");
-        char key1 = keypad.getKey();
-        if (key1 != NO_KEY && key1 != '*' && key1 != '#')
-        {
-          yeniUcret += key1;
-        }
-
-        if (key1 == '*')
-        {
-          break;
-        }
-
-        if (key1 == '#')
-        {
-          ucret = yeniUcret.toInt();
-          yeniUcret = "";
-          lcd.setCursor(0, 0);
-          lcd.print("Ucret: " + String(ucret) + " tl");
-          lcd.setCursor(0, 1);
-          lcd.print("Kaydedildi ");
-          lcd.setCursor(12, 1);
-          lcd.write((byte)7);
-          lcd.setCursor(13, 1);
-          lcd.print("    ");
-          delay(2000);
-          state = configScreen;
-          break;
-        }
-      }
-    }
+    keyHandler();
     break;
 
   case 2:
@@ -683,69 +657,109 @@ void configMenu()
     lcd.setCursor(0, 1);
     lcd.print("*->Geri   #->Sec");
 
-    if (keypad.getKey() == '1')
-    {
-      selectedIndex = 1;
-    }
-
-    if (keypad.getKey() == '2')
-    {
-      selectedIndex = 2;
-    }
-
-    if (keypad.getKey() == '*')
-    {
-      state = configScreen;
-    }
-
-    if (keypad.getKey() == '#')
-    {
-      String yeniSure = "";
-      lcd.clear();
-
-      while (1)
-      {
-        lcd.setCursor(0, 0);
-        lcd.print("Sure: " + String(sarjDk) + " dk");
-        lcd.setCursor(0, 1);
-        lcd.print("<* " + yeniSure + " #>");
-        char key1 = keypad.getKey();
-        if (key1 != NO_KEY && key1 != '*' && key1 != '#')
-        {
-          yeniSure += key1;
-        }
-
-        if (key1 == '*')
-        {
-          break;
-        }
-
-        if (key1 == '#')
-        {
-          sarjDk = yeniSure.toInt();
-          yeniSure = "";
-          lcd.setCursor(0, 0);
-          lcd.print("Ucret: " + String(sarjDk) + " dk");
-          lcd.setCursor(0, 1);
-          lcd.print("Kaydedildi ");
-          lcd.setCursor(12, 1);
-          lcd.write((byte)7);
-          lcd.setCursor(13, 1);
-          lcd.print("    ");
-          delay(2000);
-          state = configScreen;
-          break;
-        }
-      }
-    }
-
+    keyHandler();
     break;
 
   default:
     break;
   }
+}
 
-  selectedIndexPrev = selectedIndex;
+void keyHandler()
+{
+  char keyp = keypad.getKey();
+  if (keyp == '1')
+    selectedIndex = 1;
+  else if (keyp == '2')
+    selectedIndex = 2;
+  else if (keyp == '*')
+    state = configScreen;
+  else if (keyp == '#' && selectedIndex == 1)
+    state = ucretChange;
+  else if (keyp == '#' && selectedIndex == 2)
+    state = sureChange;
+}
+
+void ucretChanger()
+{
+  String yeniUcret = "";
+  bool ucretChanged = false;
+
+  while (!ucretChanged)
+  {
+    lcd.setCursor(0, 0);
+    lcd.print("Ucret: " + String(ucret) + " tl");
+    lcd.setCursor(0, 1);
+    lcd.print("<* " + yeniUcret + " #>");
+    char key1 = keypad.getKey();
+    if (key1 != NO_KEY && key1 != '*' && key1 != '#')
+    {
+      yeniUcret += key1;
+    }
+
+    if (key1 == '*')
+    {
+      break;
+    }
+
+    if (key1 == '#')
+    {
+      ucret = yeniUcret.toInt();
+      yeniUcret = "";
+      lcd.setCursor(0, 0);
+      lcd.print("Ucret: " + String(ucret) + " tl");
+      lcd.setCursor(0, 1);
+      lcd.print("Kaydedildi ");
+      lcd.setCursor(12, 1);
+      lcd.write((byte)7);
+      lcd.setCursor(13, 1);
+      lcd.print("    ");
+      delay(2000);
+      state = insertCoin;
+      ucretChanged = true;
+    }
+  }
+}
+
+void sureChanger()
+{
+  String yeniSure = "";
+  bool sureChanged = false;
+
+  while (!sureChanged)
+  {
+    lcd.setCursor(0, 0);
+    lcd.print("Sure: " + String(sarjDk) + " dk");
+    lcd.setCursor(0, 1);
+    lcd.print("<* " + yeniSure + " #>");
+    char key1 = keypad.getKey();
+    if (key1 != NO_KEY && key1 != '*' && key1 != '#')
+    {
+      yeniSure += key1;
+    }
+
+    if (key1 == '*')
+    {
+      break;
+    }
+
+    if (key1 == '#')
+    {
+      sarjDk = yeniSure.toInt();
+      yeniSure = "";
+      lcd.setCursor(0, 0);
+      lcd.print("Ucret: " + String(sarjDk) + " dk");
+      lcd.setCursor(0, 1);
+      lcd.print("Kaydedildi ");
+      lcd.setCursor(12, 1);
+      lcd.write((byte)7);
+      lcd.setCursor(13, 1);
+      lcd.print("    ");
+      delay(2000);
+      state = insertCoin;
+      sureChanged = true;
+    }
+  }
 }
 
 void stateHandler()
@@ -795,6 +809,12 @@ void stateHandler()
     break;
   case configEdit:
     configMenu();
+    break;
+  case ucretChange:
+    ucretChanger();
+    break;
+  case sureChange:
+    sureChanger();
     break;
   }
 }
